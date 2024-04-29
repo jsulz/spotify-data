@@ -53,19 +53,54 @@ def load_data():
 
 
 @st.cache_data
-def reason_table(df):
+def reason_table(df, column):
     # group the data frame by reason_start column and include counts of that colum
-    reason_counts = df.groupby("reason_start").size().reset_index(name="count")
-    # then transpose the data to make it easier to plot
-    print(reason_counts)
+    reason_counts = df.groupby(column).size().reset_index(name="count")
 
     return reason_counts
+
+
+@st.cache_data
+def played_time(df, granularity):
+    if granularity == "year":
+        # group the data by the year column and then sum the ms_played column
+        played_time = df.groupby("year")["ms_played"].sum().reset_index()
+        played_time["date"] = played_time["year"].astype(str)
+
+    if granularity == "month":
+        # group the data by the year and month column and then sum the ms_played column
+        played_time = df.groupby(["year", "month"])["ms_played"].sum().reset_index()
+        played_time["date"] = (
+            played_time["year"].astype(str) + "-" + played_time["month"].astype(str)
+        )
+
+    if granularity == "day":
+        # group the data by the year, month, and day column and then sum the ms_played column
+        played_time = (
+            df.groupby(["year", "month", "day"])["ms_played"].sum().reset_index()
+        )
+        played_time["date"] = (
+            played_time["year"].astype(str)
+            + "-"
+            + played_time["month"].astype(str)
+            + "-"
+            + played_time["day"].astype(str)
+        )
+
+    return played_time
 
 
 st.title("Spotify Data")
 
 spotify_data = load_data()
 
-reasons = reason_table(spotify_data)
+reason_start = reason_table(spotify_data, "reason_start")
+reason_end = reason_table(spotify_data, "reason_end")
 
-st.bar_chart(reasons, x="reason_start", y="count")
+st.bar_chart(reason_start, x="reason_start", y="count")
+st.bar_chart(reason_end, x="reason_end", y="count")
+
+granularity = st.selectbox("Select granularity", ["year", "month", "day"], index=1)
+st.write(granularity)
+
+st.line_chart(played_time(spotify_data, granularity), x="date", y="ms_played")
