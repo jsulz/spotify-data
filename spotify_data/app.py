@@ -97,10 +97,12 @@ spotify_data = load_data()
 reason_start = reason_table(spotify_data, "reason_start")
 reason_end = reason_table(spotify_data, "reason_end")
 
-st.bar_chart(reason_start, x="reason_start", y="count")
-st.bar_chart(reason_end, x="reason_end", y="count")
+st.bar_chart(reason_start, x="reason_start", y="count", color="#1DB045")
+st.bar_chart(reason_end, x="reason_end", y="count", color="#1DB045")
 
 granularity = st.selectbox("Select granularity", ["year", "month", "day"], index=1)
 
 st.subheader(f"Total played time (in ms) by {granularity}")
-st.line_chart(played_time(spotify_data, granularity), x="date", y="ms_played")
+st.line_chart(
+    played_time(spotify_data, granularity), x="date", y="ms_played", color="#1DB045"
+)
