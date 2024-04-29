@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "spotify-data"
+version = "0.1.0"
+description = ""
+authors = ["Jared Sulzdorf <j.sulzdorf@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+pandas = "^2.2.2"
+streamlit = "^1.33.0"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
