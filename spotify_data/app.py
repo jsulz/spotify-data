@@ -52,6 +52,20 @@ def load_data():
     return st_spotify_data
 
 
+@st.cache_data
+def reason_table(df):
+    # group the data frame by reason_start column and include counts of that colum
+    reason_counts = df.groupby("reason_start").size().reset_index(name="count")
+    # then transpose the data to make it easier to plot
+    print(reason_counts)
+
+    return reason_counts
+
+
 st.title("Spotify Data")
 
 spotify_data = load_data()
+
+reasons = reason_table(spotify_data)
+
+st.bar_chart(reasons, x="reason_start", y="count")
