@@ -115,7 +115,9 @@ def maxes(df):
 
 def ms_to_time(df):
     # take in ms and convert it to an hour:min:sec format
-    df["time_played"] = df["ms_played"].round().apply(pd.to_timedelta, unit="ms").astype(str)
+    df["time_played"] = (
+        df["ms_played"].round().apply(pd.to_timedelta, unit="ms").astype(str)
+    )
     return df
 
 
@@ -139,6 +141,15 @@ st.line_chart(
 artist_max, album_max, track_max = maxes(spotify_data)
 
 st.subheader("Top Listens")
-st.metric("Artist", f"{artist_max.iloc[0]["master_metadata_album_artist_name"]}: {artist_max.iloc[0]["time_played"][:-7]}")
-st.metric("Album", f"{album_max.iloc[0]["master_metadata_album_album_name"]}: {album_max.iloc[0]["time_played"][:-7]}")
-st.metric("Track", f"{track_max.iloc[0]["master_metadata_track_name"]}: {album_max.iloc[0]["time_played"][:-7]}")
+st.metric(
+    "Artist",
+    f"{artist_max.iloc[0]['master_metadata_album_artist_name']}: {artist_max.iloc[0]['time_played'][:-7]}",
+)
+st.metric(
+    "Album",
+    f"{album_max.iloc[0]['master_metadata_album_album_name']}: {album_max.iloc[0]['time_played'][:-7]}",
+)
+st.metric(
+    "Track",
+    f"{track_max.iloc[0]['master_metadata_track_name']}: {album_max.iloc[0]['time_played'][:-7]}",
+)
