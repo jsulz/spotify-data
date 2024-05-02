@@ -90,6 +90,35 @@ def played_time(df, granularity):
     return played_time
 
 
+def maxes(df):
+    # Group by artist, sum up the ms played, get the artist with the maximum ms played
+    artist_max = (
+        df.groupby("master_metadata_album_artist_name")["ms_played"].sum().reset_index()
+    )
+    artist_max = artist_max.sort_values(by="ms_played", ascending=False)
+    artist_max = ms_to_time(artist_max)
+
+    album_max = (
+        df.groupby("master_metadata_album_album_name")["ms_played"].sum().reset_index()
+    )
+    album_max = album_max.sort_values(by="ms_played", ascending=False)
+    album_max = ms_to_time(album_max)
+
+    track_max = (
+        df.groupby("master_metadata_track_name")["ms_played"].sum().reset_index()
+    )
+    track_max = track_max.sort_values(by="ms_played", ascending=False)
+    track_max = ms_to_time(track_max)
+
+    return artist_max.iloc[:5], album_max.iloc[:5], track_max.iloc[:5]
+
+
+def ms_to_time(df):
+    # take in ms and convert it to an hour:min:sec format
+    df["time_played"] = df["ms_played"].round().apply(pd.to_timedelta, unit="ms").astype(str)
+    return df
+
+
 st.title("Spotify Data")
 
 spotify_data = load_data()
@@ -106,3 +135,10 @@ st.subheader(f"Total played time (in ms) by {granularity}")
 st.line_chart(
     played_time(spotify_data, granularity), x="date", y="ms_played", color="#1DB045"
 )
+
+artist_max, album_max, track_max = maxes(spotify_data)
+
+st.subheader("Top Listens")
+st.metric("Artist", f"{artist_max.iloc[0]["master_metadata_album_artist_name"]}: {artist_max.iloc[0]["time_played"][:-7]}")
+st.metric("Album", f"{album_max.iloc[0]["master_metadata_album_album_name"]}: {album_max.iloc[0]["time_played"][:-7]}")
+st.metric("Track", f"{track_max.iloc[0]["master_metadata_track_name"]}: {album_max.iloc[0]["time_played"][:-7]}")
