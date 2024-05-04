@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from dateutil import tz
+import datetime
 
 
 @st.cache_data
@@ -41,15 +42,7 @@ def load_data():
     spotify_data["day"] = spotify_data["ts"].dt.day
     spotify_data["hour"] = spotify_data["ts"].dt.hour
 
-    # convert the data frame to a st.data editor
-    # format the year column to not have any commas
-    st_spotify_data = st.data_editor(
-        spotify_data,
-        column_config={"year": st.column_config.NumberColumn(format="%.0f")},
-        hide_index=True,
-    )
-
-    return st_spotify_data
+    return spotify_data
 
 
 @st.cache_data
@@ -90,6 +83,16 @@ def played_time(df, granularity):
     return played_time
 
 
+@st.cache_data
+def filter_by_year(df, start, end):
+    pst = tz.gettz("America/Los_Angeles")
+    start = datetime.datetime(year=start, month=1, day=1, tzinfo=pst)
+    end = datetime.datetime(year=end, month=1, day=1, tzinfo=pst)
+    df = df[df["ts"] >= start]
+    df = df[df["ts"] <= end]
+    return df
+
+
 def maxes(df):
     # Group by artist, sum up the ms played, get the artist with the maximum ms played
     artist_max = (
@@ -121,15 +124,80 @@ def ms_to_time(df):
     return df
 
 
+def convert_delta_to_readable(time_string):
+    # take in a string in the format of N days HH:MM:SS and convert it
+    # to N days, HH hours, MM minutes, SS seconds
+    days, time = time_string.split(" days ")
+    hours, minutes, seconds = time.split(":")
+    return f"{days} days, {hours} hours, {minutes}, minutes, {seconds}, seconds"
+
+
+def artists_table(df):
+    df_track_counts = (
+        df.groupby("master_metadata_album_artist_name")["master_metadata_track_name"]
+        .count()
+        .reset_index()
+    )
+    df_track_counts.rename(
+        columns={"master_metadata_track_name": "played_tracks_count"}, inplace=True
+    )
+
+    df_album_counts = (
+        df.groupby("master_metadata_album_artist_name")[
+            "master_metadata_album_album_name"
+        ]
+        .nunique()
+        .reset_index()
+    )
+    df_album_counts.rename(
+        columns={"master_metadata_album_album_name": "played_albums_count"},
+        inplace=True,
+    )
+
+    df_time = (
+        df.groupby("master_metadata_album_artist_name")["ms_played"].sum().reset_index()
+    )
+
+    df_album_counts.index = df_track_counts.index
+    df_time.index = df_track_counts.index
+    df_album_counts.drop(columns="master_metadata_album_artist_name", inplace=True)
+    df_time.drop(columns="master_metadata_album_artist_name", inplace=True)
+    final = pd.concat([df_track_counts, df_album_counts, df_time], axis=1)
+
+    return final
+
+
 st.title("Spotify Data")
 
 spotify_data = load_data()
 
-reason_start = reason_table(spotify_data, "reason_start")
-reason_end = reason_table(spotify_data, "reason_end")
+years = spotify_data["year"].unique()
+start_year = st.sidebar.select_slider("Start Year", options=(years), value=years[0])
+end_years = [year for year in years if year > start_year]
+end_year = st.sidebar.select_slider(
+    "Start Year", options=(end_years), value=end_years[-1]
+)
 
-st.bar_chart(reason_start, x="reason_start", y="count", color="#1DB045")
-st.bar_chart(reason_end, x="reason_end", y="count", color="#1DB045")
+# filter spotify data by start year and end year
+spotify_data = filter_by_year(spotify_data, start_year, end_year)
+
+
+# total time listened, total number of tracks, total number of artists, total number of albums, total plays
+total_tracks = spotify_data["master_metadata_track_name"].nunique()
+total_artists = spotify_data["master_metadata_album_artist_name"].nunique()
+total_albums = spotify_data["master_metadata_album_album_name"].nunique()
+total_ms = spotify_data["ms_played"].sum()
+seconds = total_ms // 1000
+minutes, seconds = divmod(seconds, 60)
+hours, minutes = divmod(minutes, 60)
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Total Tracks", total_tracks)
+col2.metric("Total Artists", total_artists)
+col3.metric("Total Albums", total_albums)
+col4.metric("Total Time", f"{hours}:{minutes}:{seconds}")
+st.write(total_ms)
+st.write(f"{hours}:{minutes}:{seconds}")
+
 
 granularity = st.selectbox("Select granularity", ["year", "month", "day"], index=1)
 
@@ -143,13 +211,41 @@ artist_max, album_max, track_max = maxes(spotify_data)
 st.subheader("Top Listens")
 st.metric(
     "Artist",
-    f"{artist_max.iloc[0]['master_metadata_album_artist_name']}: {artist_max.iloc[0]['time_played'][:-7]}",
+    f"{artist_max.iloc[0]['master_metadata_album_artist_name']}: {convert_delta_to_readable(artist_max.iloc[0]['time_played'][:-7])}",
 )
 st.metric(
     "Album",
-    f"{album_max.iloc[0]['master_metadata_album_album_name']}: {album_max.iloc[0]['time_played'][:-7]}",
+    f"{album_max.iloc[0]['master_metadata_album_album_name']}: {convert_delta_to_readable(album_max.iloc[0]['time_played'][:-7])}",
 )
 st.metric(
     "Track",
-    f"{track_max.iloc[0]['master_metadata_track_name']}: {album_max.iloc[0]['time_played'][:-7]}",
+    f"{track_max.iloc[0]['master_metadata_track_name']}: {convert_delta_to_readable(track_max.iloc[0]['time_played'][:-7])}",
 )
+
+
+# total time listened, total number of tracks, total number of artists, total number of albums, total plays
+# Build a chart that shows artists listened to with colums for artist, total time listened to, total # of tracks
+artists = st.multiselect(
+    "Artists", options=spotify_data["master_metadata_album_artist_name"].unique()
+)
+
+artist_df = artists_table(spotify_data)
+if len(artists):
+    st.dataframe(
+        data=artist_df[
+            artist_df["master_metadata_album_artist_name"].isin(artists)
+        ].sort_values(by="played_tracks_count", ascending=False),
+        hide_index=True,
+    )
+else:
+    st.dataframe(
+        data=artist_df.sort_values(by="played_tracks_count", ascending=False),
+        hide_index=True,
+    )
+
+
+reason_start = reason_table(spotify_data, "reason_start")
+reason_end = reason_table(spotify_data, "reason_end")
+
+st.bar_chart(reason_start, x="reason_start", y="count", color="#1DB045")
+st.bar_chart(reason_end, x="reason_end", y="count", color="#1DB045")
