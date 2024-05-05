@@ -92,10 +92,12 @@ def played_time(df, granularity):
 @st.cache_data
 def filter_by_year(df, start, end):
     pst = tz.gettz("America/Los_Angeles")
-    startdate = datetime.datetime(year=start, month=12, day=31, tzinfo=pst)
+    startdate = datetime.datetime(year=start, month=1, day=1, tzinfo=pst)
     enddate = datetime.datetime(year=end, month=12, day=31, tzinfo=pst)
     if start == end:
         enddate = datetime.datetime(year=end + 1, month=12, day=30, tzinfo=pst)
+
+    print(startdate, enddate)
     df = df[df["ts"] >= startdate]
     df = df[df["ts"] <= enddate]
     return df
@@ -175,6 +177,7 @@ def artists_table(df):
     return final
 
 
+st.set_page_config(layout="wide")
 st.title("Spotify Data")
 
 spotify_data = load_data()
