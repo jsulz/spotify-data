@@ -3,6 +3,8 @@ import pandas as pd
 import os
 from dateutil import tz
 import datetime
+import plotly.express as px
+import numpy as np
 
 
 @st.cache_data
@@ -41,6 +43,10 @@ def load_data():
     spotify_data["month"] = spotify_data["ts"].dt.month
     spotify_data["day"] = spotify_data["ts"].dt.day
     spotify_data["hour"] = spotify_data["ts"].dt.hour
+
+    spotify_data["device"] = spotify_data["platform"].apply(
+        lambda x: "Mobile" if "Android" in x else "Desktop/Laptop"
+    )
 
     return spotify_data
 
@@ -86,10 +92,12 @@ def played_time(df, granularity):
 @st.cache_data
 def filter_by_year(df, start, end):
     pst = tz.gettz("America/Los_Angeles")
-    start = datetime.datetime(year=start, month=1, day=1, tzinfo=pst)
-    end = datetime.datetime(year=end, month=1, day=1, tzinfo=pst)
-    df = df[df["ts"] >= start]
-    df = df[df["ts"] <= end]
+    startdate = datetime.datetime(year=start, month=12, day=31, tzinfo=pst)
+    enddate = datetime.datetime(year=end, month=12, day=31, tzinfo=pst)
+    if start == end:
+        enddate = datetime.datetime(year=end + 1, month=12, day=30, tzinfo=pst)
+    df = df[df["ts"] >= startdate]
+    df = df[df["ts"] <= enddate]
     return df
 
 
@@ -172,11 +180,17 @@ st.title("Spotify Data")
 spotify_data = load_data()
 
 years = spotify_data["year"].unique()
-start_year = st.sidebar.select_slider("Start Year", options=(years), value=years[0])
-end_years = [year for year in years if year > start_year]
-end_year = st.sidebar.select_slider(
-    "Start Year", options=(end_years), value=end_years[-1]
+start_year = st.sidebar.select_slider(
+    "Start Year", options=(years[:-1]), value=years[0]
 )
+
+if start_year < years[-1]:
+    end_years = [year for year in years if year >= start_year]
+    end_year = st.sidebar.select_slider(
+        "End Year", options=(end_years), value=end_years[-1]
+    )
+else:
+    end_year = start_year
 
 # filter spotify data by start year and end year
 spotify_data = filter_by_year(spotify_data, start_year, end_year)
@@ -210,16 +224,16 @@ artist_max, album_max, track_max = maxes(spotify_data)
 
 st.subheader("Top Listens")
 st.metric(
-    "Artist",
-    f"{artist_max.iloc[0]['master_metadata_album_artist_name']}: {convert_delta_to_readable(artist_max.iloc[0]['time_played'][:-7])}",
+    f"Artist: {artist_max.iloc[0]['master_metadata_album_artist_name']}",
+    f"{convert_delta_to_readable(artist_max.iloc[0]['time_played'][:-7])}",
 )
 st.metric(
-    "Album",
-    f"{album_max.iloc[0]['master_metadata_album_album_name']}: {convert_delta_to_readable(album_max.iloc[0]['time_played'][:-7])}",
+    f"Album: {album_max.iloc[0]['master_metadata_album_album_name']}",
+    f"{convert_delta_to_readable(album_max.iloc[0]['time_played'][:-7])}",
 )
 st.metric(
-    "Track",
-    f"{track_max.iloc[0]['master_metadata_track_name']}: {convert_delta_to_readable(track_max.iloc[0]['time_played'][:-7])}",
+    f"Track: {track_max.iloc[0]['master_metadata_track_name']}",
+    f"{convert_delta_to_readable(track_max.iloc[0]['time_played'][:-7])}",
 )
 
 
@@ -249,3 +263,9 @@ reason_end = reason_table(spotify_data, "reason_end")
 
 st.bar_chart(reason_start, x="reason_start", y="count", color="#1DB045")
 st.bar_chart(reason_end, x="reason_end", y="count", color="#1DB045")
+
+spotify_platform = (
+    spotify_data.groupby(["device"])["device"].count().reset_index(name="count")
+)
+fig = px.pie(spotify_platform, names="device", values="count")
+st.plotly_chart(fig)
