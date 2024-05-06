@@ -5,6 +5,7 @@ from dateutil import tz
 import datetime
 import plotly.express as px
 import numpy as np
+import pyxet
 
 
 @st.cache_data
@@ -24,8 +25,15 @@ def load_data():
         "incognito_mode",
     ]
 
-    # Read in final.csv into a DataFrame
-    spotify_data = pd.read_csv(os.path.join(os.path.dirname(__file__), "raw.csv"))
+    spotify_data = None
+    if "GCR" in os.environ:
+        pyxet.login(
+            os.environ["XET_UN"], os.environ["XET_PAT"], os.environ["XET_EMAIL"]
+        )
+        spotify_data = pd.read_csv("xet://jsulz/spotify-data/spotify_data/raw.csv")
+    else:
+        # Read in final.csv into a DataFrame
+        spotify_data = pd.read_csv(os.path.join(os.path.dirname(__file__), "raw.csv"))
 
     # drop columns
     spotify_data = spotify_data.drop(columns=drop_columns)
@@ -211,9 +219,6 @@ col1.metric("Total Tracks", total_tracks)
 col2.metric("Total Artists", total_artists)
 col3.metric("Total Albums", total_albums)
 col4.metric("Total Time", f"{hours}:{minutes}:{seconds}")
-st.write(total_ms)
-st.write(f"{hours}:{minutes}:{seconds}")
-
 
 granularity = st.selectbox("Select granularity", ["year", "month", "day"], index=1)
 
