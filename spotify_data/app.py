@@ -97,7 +97,6 @@ def filter_by_year(df, start, end):
     if start == end:
         enddate = datetime.datetime(year=end + 1, month=12, day=30, tzinfo=pst)
 
-    print(startdate, enddate)
     df = df[df["ts"] >= startdate]
     df = df[df["ts"] <= enddate]
     return df
