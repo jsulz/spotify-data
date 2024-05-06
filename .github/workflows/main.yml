@@ -12,8 +12,6 @@ env:
   SERVICE: ${{ vars.SERVICE }}
   REGION: ${{ vars.REGION }}
   CLOUD_RUN_SERVICE: ${{ vars.CLOUD_RUN_SERVICE }}
-  WIF_PROVIDER: ${{ vars.WIF_PROVIDER }}
-  WIF_SERVICE_ACCOUNT: ${{ vars.WIF_SERVICE_ACCOUNT }}
 
 jobs:
   deploy:
@@ -27,16 +25,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Output
-        run: echo ${{ REGION }}
-
       - name: Google Auth
         id: auth
         uses: "google-github-actions/auth@v2"
         with:
           token_format: "access_token"
-          workload_identity_provider: "${{ vars.WIF_PROVIDER }}"
-          service_account: "${{ vars.WIF_SERVICE_ACCOUNT }}"
+          workload_identity_provider: "${{ secrets.WIF_PROVIDER }}"
+          service_account: "${{ secrets.WIF_SERVICE_ACCOUNT }}"
 
       # Authenticate Docker to Google Cloud Artifact Registry
       - name: Docker Auth
