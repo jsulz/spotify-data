@@ -185,7 +185,7 @@ def artists_table(df):
 
 
 st.set_page_config(layout="wide")
-st.title("Spotify Data")
+st.title("My Spotify Wrapped")
 
 spotify_data = load_data()
 
