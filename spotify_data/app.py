@@ -110,6 +110,13 @@ def filter_by_year(df, start, end):
     return df
 
 
+@st.cache_data
+def filter_by_artist(df, artists):
+    if len(artists):
+        df = df[df["master_metadata_album_artist_name"].isin(artists)]
+    return df
+
+
 def maxes(df):
     # Group by artist, sum up the ms played, get the artist with the maximum ms played
     artist_max = (
@@ -119,13 +126,21 @@ def maxes(df):
     artist_max = ms_to_time(artist_max)
 
     album_max = (
-        df.groupby("master_metadata_album_album_name")["ms_played"].sum().reset_index()
+        df.groupby(
+            ["master_metadata_album_album_name", "master_metadata_album_artist_name"]
+        )["ms_played"]
+        .sum()
+        .reset_index()
     )
     album_max = album_max.sort_values(by="ms_played", ascending=False)
     album_max = ms_to_time(album_max)
 
     track_max = (
-        df.groupby("master_metadata_track_name")["ms_played"].sum().reset_index()
+        df.groupby(["master_metadata_track_name", "master_metadata_album_artist_name"])[
+            "ms_played"
+        ]
+        .sum()
+        .reset_index()
     )
     track_max = track_max.sort_values(by="ms_played", ascending=False)
     track_max = ms_to_time(track_max)
@@ -197,6 +212,11 @@ st.divider()
 
 spotify_data = load_data()
 
+st.sidebar.subheader("Filter Data by Year")
+st.sidebar.write(
+    "Selecting/updating this range will refresh the page and all selections."
+)
+
 years = spotify_data["year"].unique()
 start_year = st.sidebar.select_slider(
     "Start Year", options=(years[:-1]), value=years[0]
@@ -214,6 +234,16 @@ else:
 spotify_data = filter_by_year(spotify_data, start_year, end_year)
 
 
+# Filter data by artist
+st.sidebar.subheader("Filter Data by Artist")
+st.sidebar.write(
+    "You can filter the data by one to many artists. This will not cause the page to refresh."
+)
+artists = st.sidebar.multiselect(
+    "Artists", options=spotify_data["master_metadata_album_artist_name"].unique()
+)
+spotify_data = filter_by_artist(spotify_data, artists)
+
 # total time listened, total number of tracks, total number of artists, total number of albums, total plays
 total_tracks = spotify_data["master_metadata_track_name"].nunique()
 total_artists = spotify_data["master_metadata_album_artist_name"].nunique()
@@ -228,7 +258,11 @@ col2.metric("Total Artists", total_artists)
 col3.metric("Total Albums", total_albums)
 col4.metric("Total Time", f"{hours}:{minutes}:{seconds}")
 
+st.divider()
 st.header(f"Total played time (in ms) by....")
+st.write(
+    "Below is a chart showing my total played time over the selected range. Interestingly, there is a precipitous drop in 2018 followed by another drop in 2020. The first drop likely corresponds to when I started dating my wife. The second drop is when I began my Master's program. Updating the granularity of this chart will give you insight into day-to-day, month-to-month, or year-to-year trends."
+)
 granularity = st.selectbox("Select granularity", ["year", "month", "day"], index=1)
 
 st.subheader(f"....{granularity}")
@@ -236,29 +270,28 @@ st.line_chart(
     played_time(spotify_data, granularity), x="date", y="ms_played", color="#1DB045"
 )
 
+st.divider()
 artist_max, album_max, track_max = maxes(spotify_data)
-
 st.subheader("Top Listens")
+st.write(
+    "Here, we come to my top listens. These are the artists, albums, and tracks that I've spent the most time listening to. I'm not suprised at all by the staying power of Radiohead, Bon Iver, or Beach House in my catalog. these have been my go-to artists for years. Some surprises are just how much I listened to The Districts in the past few months, and how much I love Over and Over by Hot Chip."
+)
 st.metric(
     f"Artist: {artist_max.iloc[0]['master_metadata_album_artist_name']}",
     f"{convert_delta_to_readable(artist_max.iloc[0]['time_played'][:-7])}",
 )
 st.metric(
-    f"Album: {album_max.iloc[0]['master_metadata_album_album_name']}",
+    f"Album: {album_max.iloc[0]['master_metadata_album_album_name']}, by {album_max.iloc[0]['master_metadata_album_artist_name']}",
     f"{convert_delta_to_readable(album_max.iloc[0]['time_played'][:-7])}",
 )
 st.metric(
-    f"Track: {track_max.iloc[0]['master_metadata_track_name']}",
+    f"Track: {track_max.iloc[0]['master_metadata_track_name']}, by {track_max.iloc[0]['master_metadata_album_artist_name']}",
     f"{convert_delta_to_readable(track_max.iloc[0]['time_played'][:-7])}",
 )
 
-
-# total time listened, total number of tracks, total number of artists, total number of albums, total plays
-# Build a chart that shows artists listened to with colums for artist, total time listened to, total # of tracks
-artists = st.multiselect(
-    "Artists", options=spotify_data["master_metadata_album_artist_name"].unique()
+st.write(
+    "The table below breaks out all of the artists by total tracks and albums played."
 )
-
 artist_df = artists_table(spotify_data)
 if len(artists):
     st.dataframe(
@@ -274,14 +307,14 @@ else:
         hide_index=True,
         use_container_width=True,
     )
+st.divider()
 
+st.header("The Weird Bits")
 
-reason_start = reason_table(spotify_data, "reason_start")
-reason_end = reason_table(spotify_data, "reason_end")
-
-st.bar_chart(reason_start, x="reason_start", y="count", color="#1DB045")
-st.bar_chart(reason_end, x="reason_end", y="count", color="#1DB045")
-
+st.write(
+    "The pie chart below shows a breakdown of whether I was listening to Spotify on a mobile device or a desktop/laptop. I might break this out into a line chart at some point, because the trends here are interesting. Early on, I was listening to Spotify mostly on my desktop/laptop. I was well behind the smartphone curve and didn't get my first Android phone until 2015. Between 2015 and 2018, I was listening to Spotify mostly on my phone, likely on my walks to and from the office in Seattle and on my runs. Since 2018, a lot of that shifted. First, I stopped going into the office (thanks Master's/COVID) and I stopped listening to music all-together on runs."
+)
+st.subheader("Listen time by Platform")
 spotify_platform = (
     spotify_data.groupby(["device"])["device"].count().reset_index(name="count")
 )
@@ -294,3 +327,14 @@ fig = px.pie(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+
+st.write(
+    'Now we get into some more esoteric data! The bar graphs below show how often I chose a way to start and end listening to a song. Not surprisingly, most of the time a track ended or began because I was just done listening to the current/previous song. Interestingly, as you move the start range later and later, you should see that I started exploring Spotify more - choosing to begin a song using the "clickrow" option (meaning I clicked on the song in a playlist/album/artist page).'
+)
+reason_start = reason_table(spotify_data, "reason_start")
+reason_end = reason_table(spotify_data, "reason_end")
+
+st.subheader("Reason for starting a track")
+st.bar_chart(reason_start, x="reason_start", y="count", color="#1DB045")
+st.subheader("Reason for Ending a track")
+st.bar_chart(reason_end, x="reason_end", y="count", color="#1DB045")
