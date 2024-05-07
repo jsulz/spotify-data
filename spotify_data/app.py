@@ -184,8 +184,16 @@ def artists_table(df):
     return final
 
 
-st.set_page_config(layout="wide")
+st.set_page_config(
+    layout="wide", page_title="My Spotify Wrapped", page_icon="img/favicon.ico"
+)
 st.title("My Spotify Wrapped")
+
+st.divider()
+st.write(
+    "My Spotify Wrapped is a Streamlit app gives me some tools to splice and dice my own Spotify extended streaming data. I've taken my raw Spotify data and created some visualizations and tables to help me understand my listening habits. To the left, you can select the start and end year to filter the data. Below, you can see some metrics about my listening habits, as well as some some charts and graphs."
+)
+st.divider()
 
 spotify_data = load_data()
 
@@ -220,9 +228,10 @@ col2.metric("Total Artists", total_artists)
 col3.metric("Total Albums", total_albums)
 col4.metric("Total Time", f"{hours}:{minutes}:{seconds}")
 
+st.header(f"Total played time (in ms) by....")
 granularity = st.selectbox("Select granularity", ["year", "month", "day"], index=1)
 
-st.subheader(f"Total played time (in ms) by {granularity}")
+st.subheader(f"....{granularity}")
 st.line_chart(
     played_time(spotify_data, granularity), x="date", y="ms_played", color="#1DB045"
 )
@@ -257,11 +266,13 @@ if len(artists):
             artist_df["master_metadata_album_artist_name"].isin(artists)
         ].sort_values(by="played_tracks_count", ascending=False),
         hide_index=True,
+        use_container_width=True,
     )
 else:
     st.dataframe(
         data=artist_df.sort_values(by="played_tracks_count", ascending=False),
         hide_index=True,
+        use_container_width=True,
     )
 
 
@@ -274,5 +285,12 @@ st.bar_chart(reason_end, x="reason_end", y="count", color="#1DB045")
 spotify_platform = (
     spotify_data.groupby(["device"])["device"].count().reset_index(name="count")
 )
-fig = px.pie(spotify_platform, names="device", values="count")
-st.plotly_chart(fig)
+fig = px.pie(
+    spotify_platform,
+    names="device",
+    values="count",
+    color="device",
+    color_discrete_map={"Mobile": "#1DB045", "Desktop/Laptop": "#b3b3b3"},
+)
+
+st.plotly_chart(fig, use_container_width=True)
