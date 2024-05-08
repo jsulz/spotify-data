@@ -97,6 +97,31 @@ def played_time(df, granularity):
     return played_time
 
 
+def artist_played(df, artists):
+    # group the data by the artist and year column and then sum the ms_played column
+    artist_played = (
+        df.groupby(["master_metadata_album_artist_name", "year", "month"])["ms_played"]
+        .sum()
+        .reset_index()
+    )
+    artist_played["played"] = (
+        artist_played["year"].astype(str) + "-" + artist_played["month"].astype(str)
+    )
+    artist_played = artist_played[
+        artist_played["master_metadata_album_artist_name"].isin(artists)
+    ]
+    artist_played = (
+        artist_played.pivot(
+            index="played",
+            columns="master_metadata_album_artist_name",
+            values="ms_played",
+        )
+        .reset_index()
+        .fillna(0)
+    )
+    return artist_played
+
+
 @st.cache_data
 def filter_by_year(df, start, end):
     pst = tz.gettz("America/Los_Angeles")
@@ -161,6 +186,14 @@ def convert_delta_to_readable(time_string):
     # to N days, HH hours, MM minutes, SS seconds
     days, time = time_string.split(" days ")
     hours, minutes, seconds = time.split(":")
+    if "0" in hours:
+        hours = hours.replace("0", "")
+    if "0" in minutes:
+        minutes = minutes.replace("0", "")
+    if "0" in seconds:
+        seconds = seconds.replace("0", "")
+    if days == "0":
+        return f"{hours} hours, {minutes} minutes, {seconds} seconds"
     return f"{days} days, {hours} hours, {minutes}, minutes, {seconds}, seconds"
 
 
@@ -206,15 +239,16 @@ st.title("My Spotify Wrapped")
 
 st.divider()
 st.write(
-    "My Spotify Wrapped is a Streamlit app gives me some tools to splice and dice my own Spotify extended streaming data. I've taken my raw Spotify data and created some visualizations and tables to help me understand my listening habits. To the left, you can select the start and end year to filter the data. Below, you can see some metrics about my listening habits, as well as some some charts and graphs."
+    "My Spotify Wrapped is a Streamlit app gives me some tools to splice and dice my own Spotify extended streaming data. I've taken my raw Spotify data and created some visualizations and tables to help me understand my listening habits. To the left, you can select the start and end year to filter the data. You can also drill in on a specific artist that I've listened to in that year range. Below, the metrics, charts, and graphs will all update as you filter the data. Enjoy!"
 )
+
 st.divider()
 
 spotify_data = load_data()
 
 st.sidebar.subheader("Filter Data by Year")
 st.sidebar.write(
-    "Selecting/updating this range will refresh the page and all selections."
+    "Filter the data by start and end year.Selecting/updating this range will refresh the page and all selections."
 )
 
 years = spotify_data["year"].unique()
@@ -233,11 +267,10 @@ else:
 # filter spotify data by start year and end year
 spotify_data = filter_by_year(spotify_data, start_year, end_year)
 
-
 # Filter data by artist
 st.sidebar.subheader("Filter Data by Artist")
 st.sidebar.write(
-    "You can filter the data by one to many artists. This will not cause the page to refresh."
+    "You can filter the data by one to many artists. This will not cause any other selections (namely the year range) to refresh."
 )
 artists = st.sidebar.multiselect(
     "Artists", options=spotify_data["master_metadata_album_artist_name"].unique()
@@ -269,12 +302,19 @@ st.subheader(f"....{granularity}")
 st.line_chart(
     played_time(spotify_data, granularity), x="date", y="ms_played", color="#1DB045"
 )
+if len(artists):
+    st.subheader(f"Total played time (in ms) by artist")
+    st.write(
+        "Congratulations! You filtered by one of the artists that I listen to. This chart breaks out the amount of time I've spent listening to each individual artist. If you select another from the dropdown to the left, you'll see a new line added to this chart that corresponds to the time I've spent listening to that artist. The granularity of this chart is in months only."
+    )
+    ap_df = artist_played(spotify_data, artists)
+    st.line_chart(ap_df, x="played", y=artists)
 
 st.divider()
 artist_max, album_max, track_max = maxes(spotify_data)
 st.subheader("Top Listens")
 st.write(
-    "Here, we come to my top listens. These are the artists, albums, and tracks that I've spent the most time listening to. I'm not suprised at all by the staying power of Radiohead, Bon Iver, or Beach House in my catalog. these have been my go-to artists for years. Some surprises are just how much I listened to The Districts in the past few months, and how much I love Over and Over by Hot Chip."
+    "Here, we come to my top listens. These are the artists, albums, and tracks that I've spent the most time listening to. I'm not suprised at all by the staying power of Radiohead, Bon Iver, or Beach House in my catalog. These have been my go-to artists for years. Some surprises are just how much I listened to The Districts in the past few months, and how much I love Over and Over by Hot Chip."
 )
 st.metric(
     f"Artist: {artist_max.iloc[0]['master_metadata_album_artist_name']}",
