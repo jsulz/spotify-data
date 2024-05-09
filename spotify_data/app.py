@@ -25,6 +25,7 @@ def load_data():
         "incognito_mode",
     ]
 
+    # If we're in a cloud run environment, then we should use pyxet to load the data into the data frame
     spotify_data = None
     if "GCR" in os.environ:
         pyxet.login(
@@ -173,6 +174,26 @@ def maxes(df):
     return artist_max.iloc[:5], album_max.iloc[:5], track_max.iloc[:5]
 
 
+@st.cache_data
+def top_skipped_songs(df):
+    # count the number of times a song has been skipped
+    skipped_songs = (
+        df[df["skipped"] == True]
+        .groupby(["master_metadata_track_name", "master_metadata_album_artist_name"])
+        .size()
+        .reset_index(name="tracks_skipped")
+    )
+    skipped_songs.sort_values(by="tracks_skipped", ascending=False, inplace=True)
+    return skipped_songs.iloc[:50]
+
+
+@st.cache_data
+def platforms_used(df):
+    platforms_df = df.groupby("platform").size().reset_index(name="tracks_played")
+    platforms_df.sort_values(by="tracks_played", ascending=False, inplace=True)
+    return platforms_df
+
+
 def ms_to_time(df):
     # take in ms and convert it to an hour:min:sec format
     df["time_played"] = (
@@ -231,6 +252,8 @@ def artists_table(df):
 
     return final
 
+
+########################### Page Layout ###########################
 
 st.set_page_config(
     layout="wide", page_title="My Spotify Wrapped", page_icon="img/favicon.ico"
@@ -352,9 +375,12 @@ st.divider()
 st.header("The Weird Bits")
 
 st.write(
-    "The pie chart below shows a breakdown of whether I was listening to Spotify on a mobile device or a desktop/laptop. I might break this out into a line chart at some point, because the trends here are interesting. Early on, I was listening to Spotify mostly on my desktop/laptop. I was well behind the smartphone curve and didn't get my first Android phone until 2015. Between 2015 and 2018, I was listening to Spotify mostly on my phone, likely on my walks to and from the office in Seattle and on my runs. Since 2018, a lot of that shifted. First, I stopped going into the office (thanks Master's/COVID) and I stopped listening to music all-together on runs."
+    "Now we get into some more esoteric data!\n\n The next few breakdowns put the 'extended' in 'extended streaming data.' We'll look at the platforms I used to listen to Spotify, the reasons I started and ended tracks, and the songs I skipped the most. Truly trilling stuff... but still kinda fun!"
 )
 st.subheader("Listen time by Platform")
+st.write(
+    "The pie chart below shows a breakdown of whether I was listening to Spotify on a mobile device or a desktop/laptop. I might break this out into a line chart at some point, because the trends here are interesting. Early on, I was listening to Spotify mostly on my desktop/laptop. I was well behind the smartphone curve and didn't get my first Android phone until 2015. Between 2015 and 2018, I was listening to Spotify mostly on my phone, likely on my walks to and from the office in Seattle and on my runs. Since 2018, a lot of that shifted. First, I stopped going into the office (thanks Master's/COVID) and I stopped listening to music all-together on runs."
+)
 spotify_platform = (
     spotify_data.groupby(["device"])["device"].count().reset_index(name="count")
 )
@@ -367,14 +393,40 @@ fig = px.pie(
 )
 
 st.plotly_chart(fig, use_container_width=True)
+st.divider()
 
+st.subheader("Reasons for..... ")
 st.write(
-    'Now we get into some more esoteric data! The bar graphs below show how often I chose a way to start and end listening to a song. Not surprisingly, most of the time a track ended or began because I was just done listening to the current/previous song. Interestingly, as you move the start range later and later, you should see that I started exploring Spotify more - choosing to begin a song using the "clickrow" option (meaning I clicked on the song in a playlist/album/artist page).'
+    'The bar graphs below show how often I chose a way to start and end listening to a song. Not surprisingly, most of the time a track ended or began because I was just done listening to the current/previous song. Interestingly, as you move the start range later and later, you should see that I started exploring Spotify more - choosing to begin a song using the "clickrow" option (meaning I clicked on the song in a playlist/album/artist page).'
 )
 reason_start = reason_table(spotify_data, "reason_start")
 reason_end = reason_table(spotify_data, "reason_end")
 
-st.subheader("Reason for starting a track")
+st.subheader("..... starting a track")
 st.bar_chart(reason_start, x="reason_start", y="count", color="#1DB045")
-st.subheader("Reason for Ending a track")
+st.subheader("..... ending a track")
 st.bar_chart(reason_end, x="reason_end", y="count", color="#1DB045")
+
+st.divider()
+st.subheader("Top Skipped Songs")
+st.write(
+    "Yup, just like the heading says: These are the songs I skipped the most. I've skipped a fair amount of Kanye. Not shocking. I've also skipped a lot of songs that I really enjoy. My best guess is that I get burned out by over-listening to them and invariably skip them when my favorite part of the song is done."
+)
+top_skipped_songs_df = top_skipped_songs(spotify_data)
+st.dataframe(
+    data=top_skipped_songs_df,
+    hide_index=True,
+    use_container_width=True,
+)
+
+st.divider()
+st.subheader("Platforms/Operating Systems")
+st.write(
+    "These are the operating systems I've used to listen to Spotify - including the total listen time and track count. I could probably do some grouping here on Mac OS/Windows/Android/Linux, but it's nice to see the raw data like this as well. See if you can spot the Yamaha receiver in the list."
+)
+platforms_df = platforms_used(spotify_data)
+st.dataframe(
+    data=platforms_df,
+    hide_index=True,
+    use_container_width=True,
+)
