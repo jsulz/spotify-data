@@ -16,4 +16,4 @@ Streamlit isn't exactly a lightweight install; even though I'm running on a slim
 
 The only downside is that because I'm using GitHub Actions as my CI/CD pipeline, that's also where I build the Docker image and can't bundle the data at the same time. To get around that, I'm using [PyXet](https://github.com/xetdata/pyxet) to access the data from XetHub when Streamlit loads.
 
-The Streamlit app can be found [here](https://myspotifywrapped.jsulz.com). It make take a second for it to run since I'm spinning down the Cloud Run instance after 15 minutes of inactivity.s Enjoy!
+The Streamlit app can be found [here](https://myspotifywrapped.jsulz.com). It make take a second for it to run since I'm spinning down the Cloud Run instance after 15 minutes of inactivity. Enjoy!
