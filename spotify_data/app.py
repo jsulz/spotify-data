@@ -5,7 +5,6 @@ from dateutil import tz
 import datetime
 import plotly.express as px
 import numpy as np
-import pyxet
 
 
 @st.cache_data
@@ -27,14 +26,8 @@ def load_data():
 
     # If we're in a cloud run environment, then we should use pyxet to load the data into the data frame
     spotify_data = None
-    if "GCR" in os.environ:
-        pyxet.login(
-            os.environ["XET_UN"], os.environ["XET_PAT"], os.environ["XET_EMAIL"]
-        )
-        spotify_data = pd.read_csv("xet://jsulz/spotify-data/spotify_data/raw.csv")
-    else:
-        # Read in final.csv into a DataFrame
-        spotify_data = pd.read_csv(os.path.join(os.path.dirname(__file__), "raw.csv"))
+    # Read in final.csv into a DataFrame
+    spotify_data = pd.read_csv(os.path.join(os.path.dirname(__file__), "raw.csv"))
 
     # drop columns
     spotify_data = spotify_data.drop(columns=drop_columns)
